@@ -8,15 +8,12 @@ def main():
     pass
 
 
-def connect(ip_addr: str, username: str, password: str, commands: tuple):
+def connect(ip_addr: str, username: str, commands: tuple):
     client = paramiko.SSHClient()
     client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     client.connect(
         hostname=ip_addr,
         username=username,
-        password=password,
-        look_for_keys=False,
-        allow_agent=False
     )
     with client.invoke_shell() as ssh:
         result = {}
@@ -39,4 +36,4 @@ def connect(ip_addr: str, username: str, password: str, commands: tuple):
 if __name__ == '__main__':
     commands = ("pwd", "ls")
     result = connect(ip_addr="192.168.56.102", username="arbuzzopnik", password="A052000", commands=commands)
-    print(result,)
+    print(result["pwd"])
