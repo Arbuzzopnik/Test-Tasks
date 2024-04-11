@@ -1,7 +1,6 @@
 import paramiko
 
 
-
 def connect(ip_addr: str, username: str, commands: tuple):
     client = paramiko.SSHClient()
     client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
