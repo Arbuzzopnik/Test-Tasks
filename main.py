@@ -1,165 +1,146 @@
-import time
+from time import sleep
+
+import socket
+import ipaddress
 
 import paramiko
 from tqdm import tqdm
 
+from datamodels import DbConfig
 
-def ssh_connect(ip_addr: str, username: str):
-    """
-    Устанавливает SSH-соединение с удаленным хостом.
 
-    :param ip_addr: IP-адрес удаленного хоста, к которому требуется подключиться. (str)
-    :param username: Имя пользователя для аутентификации при подключении. (str)
-    :return: Клиентское соединение SSH (paramiko.SSHClient) в случае успешного подключения;
-             None в случае возникновения ошибки.
+def validate_ip(ip_addr: str) -> str:
     """
-    client = paramiko.SSHClient()
-    client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    Checks the validity of the IP address or DNS name
+
+    :param ip_addr:IP address of the remote host. (str)
+    :return: IP address of the remote host . (str)
+    """
     try:
-        client.connect(hostname=ip_addr, username=username)
-    except (paramiko.SSHException, OSError) as e:
-        print(f"Error connecting to {ip_addr} as {username}:\n{e}")
-        return None
-    return client
+        ip = ipaddress.IPv4Address(ip_addr)
+        return str(ip)
+    except ValueError:
+        try:
+            ip = ipaddress.IPv4Address(socket.gethostbyname(ip_addr))
+        except Exception as e:
+            print(f"Error: {e}. Invalid IP address or host.")
+        return str(ip)
 
 
-def connect(ip_addr: str, username: str, commands: dict) -> bool:
-    """
-    Устанавливает SSH-соединение с указанным IP-адресом и именем пользователя, а затем выполняет список команд на удаленном хосте.
+class Client():
+    def __init__(self, ip_addr: str, username: str):
+        """
+        :param ip_addr: Remote host IP address
+        :param username: Remote host username
+        """
+        self.ip_addr = ip_addr
+        self.username = username
+        self.client = paramiko.SSHClient()
 
-    :param ip_addr: IP-адрес удаленного хоста, к которому требуется подключиться. (str)
-    :param username: Имя пользователя для аутентификации при подключении. (str)
-    :param commands: Словарь команд, которые необходимо выполнить на удаленном хосте. Ключи словаря представляют собой описания команд, а значения - сами команды. (dict)
-    :return:True, если все команды были успешно выполнены без ошибок;
-            False, если произошла хотя бы одна ошибка при выполнении команд. (bool)
-    """
+    def get_ssh_connection(self) -> None:
+        """
+        Establishes an SSH connection with a remote host.
 
-    client = ssh_connect(ip_addr, username)
-    if client is None:
-        print(f"Проверьте возможность соединения с {ip_addr}")
-        return False
+        :return: None.
+        """
 
-    try:
-        for key, value in tqdm(commands.items(), colour=False):
-            stdin, stdout, stderr = client.exec_command(value)
+        self.client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        try:
+            self.client.connect(hostname=self.ip_addr, username=self.username)
+        except (paramiko.SSHException, OSError) as e:
+            print(f"Error connecting to {self.ip_addr} as {self.username}:\n{e}")
 
-            tqdm.write(f"{key}", end='')
+    def send_commands(self, cmds: dict) -> None:
+        """
+        Establishes an SSH connection to the specified IP address and username, and then executes a list of commands
+        on the remote host and close connection.
 
+        :param cmds: A dictionary of commands that need to be executed on the remote host. The dictionary keys are
+        descriptions of the commands, and the values are the commands themselves. (dict)
+
+        :return:None.
+        """
+        self.get_ssh_connection()
+        try:
+            for key, value in tqdm(cmds.items(), colour=False):
+                stdin, stdout, stderr = self.client.exec_command(value)
+
+                tqdm.write(f"{key}", end='')
+
+                error = stderr.read().decode('utf-8')
+
+                if error:
+                    tqdm.write("\033[91m\u2717\033[0m")  # Красный крестик
+                    print(f"\nError occurred while running command '{value}': {error}")
+
+                tqdm.write("\033[92m\u2713\033[0m")  # Зеленая галочка
+        except Exception as e:
+            print(f"An error occurred during execution: {e}")
+        finally:
+            self.client.close()
+
+    def request_to_db(self, db_config: DbConfig, query_text: str) -> None:
+        """
+        Establishes an SSH connection to a remote host, queries the database, print results and close connection.
+
+        :param db_config: Database configuration containing information about the container, user and database. (dict)
+        :param query_text: PostgreSQL database query text. (str)
+
+        :return: None
+
+        """
+        self.get_ssh_connection()
+        try:
+            stdin, stdout, stderr = self.client.exec_command(
+                f"docker exec {db_config.container_name} psql -U {db_config.user} -d {db_config.db_name} -c '{query_text}'")
             error = stderr.read().decode('utf-8')
-
-            if error:
-                tqdm.write("\033[91m\u2717\033[0m")  # Красный крестик
-                print(f"\nError occurred while running command '{value}': {error}")
-                return False
-
-            tqdm.write("\033[92m\u2713\033[0m")  # Зеленая галочка
-
-        return True
-    except Exception as e:
-        print(f"An error occurred during execution: {e}")
-        return False
-    finally:
-        client.close()
+            output = stdout.read().decode('utf-8')
+            print(error or output)
+        except Exception as e:
+            print(f"An error occurred during execution: {e}")
+        finally:
+            self.client.close()
 
 
-def request(ip_addr: str, username: str, db_config: dict, request_text: str) -> None:
-    """
-    Устанавливает SSH-соединение с удаленным хостом и выполняет запрос к базе данных.
-
-    :param ip_addr: IP-адрес удаленного хоста, к которому требуется подключиться. (str)
-    :param username: Имя пользователя для аутентификации при подключении. (str)
-    :param db_config: Конфигурация базы данных, содержащая информацию о контейнере, пользователе и БД. (dict)
-    :param request_text: Текст запроса к базе данных PostgreSQL. (str)
-
-    :return: None
-
-    """
-    client = ssh_connect(ip_addr, username)
-    if client is None:
-        print(f"Проверьте возможность соединения с {ip_addr}")
-        return None
-
-    try:
-        stdin, stdout, stderr = client.exec_command(
-           f"docker exec {db_config['container_name']} psql -U {db_config['user']} -d {db_config['db_name']} -c '{request_text}'")
-        error = stderr.read().decode('utf-8')
-        output = stdout.read().decode('utf-8')
-        if error:
-            return error
-        return output
-
-    except Exception as e:
-        print(f"An error occurred during execution: {e}")
-        return None
-    finally:
-        client.close()
-
-
-
-def main():
-    """
-    Главная функция, которая управляет установкой PostgreSQL и выполнением тестового запроса.
-
-    :return: None
-    """
-    # Параметры для подключения к удаленному серверу
+if __name__ == '__main__':
+    # Parameters for connecting to a remote host
     ip_addr = "192.168.56.103"
+    ip_addr = validate_ip(ip_addr)
     username = "admin"
 
-    # Текст тестового SQL-запроса
-    request_text = "SELECT 1;"
+    # Test SQL query text
+    query_text = "SELECT 1;"
 
-    # Конфигурация базы данных PostgreSQL
-    db_config = {'container_name': 'postgres_test',
-                 'db_name': 'postgres_test_db',
-                 'user': 'admin',
-                 'password': 'pass',
-                 }
+    # PostgreSQL database configuration
 
-    # Команды для установки и настройки PostgreSQL
-    commands = {
+    db_config = DbConfig(container_name='postgres_test',
+                         db_name='postgres_test_db',
+                         user='admin',
+                         password='pass')
+
+    # Commands for installing and configuring PostgreSQL
+    cmds = {
         'Создание директории для монтирования': 'mkdir -p $HOME/docker/volumes/postgres',
         'Загрузка образа PostgreSQL из Docker Hub': "docker pull postgres",
-        'Запуск контейнера PostgreSQL': f"docker run -d --restart unless-stopped --name {db_config['container_name']} -e "
-                                       f"POSTGRES_PASSWORD={db_config['password']} -e "
-                                       f"POSTGRES_USER={db_config['user']} -e POSTGRES_DB={db_config['db_name']} -d -p 5432:5432 -v "
-                                       "$HOME/docker/volumes/postgres:/var/lib/postgresql/data postgres",
+        'Запуск контейнера PostgreSQL': f"docker run -d --restart unless-stopped --name {db_config.container_name} -e "
+                                        f"POSTGRES_PASSWORD={db_config.password} -e "
+                                        f"POSTGRES_USER={db_config.user} -e POSTGRES_DB={db_config.db_name} -d -p 5432:5432 -v "
+                                        "$HOME/docker/volumes/postgres:/var/lib/postgresql/data postgres",
     }
 
-    # Команды для удаления контейнера и образа PostgreSQL
+    # Commands for deleting a PostgreSQL container and image
     commands_to_dell = {
-        '1': f'docker stop {db_config["container_name"]}',
-        '2': f'docker rm {db_config["container_name"]}',
+        '1': f'docker stop {db_config.container_name}',
+        '2': f'docker rm {db_config.container_name}',
         '3': f'docker rmi postgres',
         '4': f'rm -r $HOME/docker/volumes/postgres',
     }
 
-    # Попытка установки PostgreSQL
-    installation_status = connect(ip_addr=ip_addr, username=username, commands=commands)
+    # Attempt to install PostgreSQL
+    client = Client(ip_addr=ip_addr, username=username)
+    client.send_commands(cmds=cmds)
 
-    time.sleep(1)
+    sleep(1)
 
-    # Проверка успешности установки и выполнение тестового запроса
-    if installation_status:
-        print(f"Установка завершена, тестовый запрос {request_text}:")
-        print(request(ip_addr=ip_addr, username=username, db_config=db_config, request_text=request_text))
-    else:
-        print("Не удалось установить PostgreSQL")
-
-
-if __name__ == '__main__':
-    ip_addr = "192.168.56.103"
-    username = "admin"
-
-    # Текст тестового SQL-запроса
-    request_text = 'SELECT 1;'
-
-    # Конфигурация базы данных PostgreSQL
-    db_config = {'container_name': 'postgres_test',
-                 'db_name': 'postgres_test_db',
-                 'user': 'admin',
-                 'password': 'pass',
-                 }
-    #request(ip_addr=ip_addr, username=username, db_config=db_config, request_text=request_text)
-    main()
-
+    # Running a test request
+    client.request_to_db(db_config=db_config, query_text=query_text)
