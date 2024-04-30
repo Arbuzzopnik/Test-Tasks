@@ -19,7 +19,7 @@ ___
 
 ### Пример использования 
 ```
-python postgresqlInstaller.py 192.168.56.103
+python postgresqlinstaller.py 192.168.56.103
 ```
 ___
 ## Требования к удаленному хосту
@@ -68,7 +68,7 @@ root. Однако данная практика считается неправ
 не было, я бы организовал вызов программы следующим образом:  
 
 `python postgresqlInstaller.py <hostname> <username>`,  
-где uername (имя пользователя) задавалось бы как:  
+где username (имя пользователя) задавалось бы как:  
 
 `username = sys.argv[2]`
 
