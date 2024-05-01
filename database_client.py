@@ -12,9 +12,9 @@ from colorama import Fore, init
 from datamodels import DbConfig
 
 
-class PostgresqlInstaller:
+class DatabaseClient:
     """
-    The PostgresqlInstaller class is designed to automate the process of setting up and configuring a PostgreSQL
+    The DatabaseClient class is designed to automate the process of setting up and configuring a PostgreSQL
     database within a Docker container on a remote host. It provides functionalities to validate hostnames,
     establish SSH connections, install and configure PostgreSQL, and execute queries against the database.
     """
@@ -40,7 +40,7 @@ class PostgresqlInstaller:
 
     def __init__(self, hostname: str, username: str, db_config: DbConfig):
         """
-        This method is initializes an instance of the PostgresqlInstaller class.
+        This method is initializes an instance of the DatabaseClient class.
 
         :param hostname: IP address or domain name of the remote host .
         :type hostname: str
@@ -156,7 +156,7 @@ if __name__ == '__main__':
                          password='pass')
 
     # Attempt to install PostgreSQL
-    client = PostgresqlInstaller(hostname=hostname, username=username, db_config=db_config)
+    client = DatabaseClient(hostname=hostname, username=username, db_config=db_config)
     client.installing_postgres()
 
     # Running a test request

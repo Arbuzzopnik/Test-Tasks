@@ -1,7 +1,7 @@
-# PostgresqlInstaller
+# DatabaseClient
 ___
 ## Описание
-PostgresqlInstaller - это инструмент, предназначенный для автоматизации 
+DatabaseClient - это инструмент, предназначенный для автоматизации 
 процесса установки и настройки базы данных PostgreSQL в контейнере 
 Docker на удаленном хосте. Он предоставляет функциональность для 
 проверки доменных имен или IP-адресов, установления SSH-соединений, 
@@ -15,11 +15,12 @@ ___
 
 1. `git clone https://github.com/Arbuzzopnik/Test-Tasks.git`  
 2. `pip install requirements.txt`
-3. `python postgresqlInstaller.py <hostname>`
+3. `python database_client.py <hostname>`
 
 ### Пример использования 
 ```
-python postgresqlinstaller.py 192.168.56.103
+python database_client.py 192.168.56.103
+python database_client.py somehost
 ```
 ___
 ## Требования к удаленному хосту
@@ -67,7 +68,7 @@ root. Однако данная практика считается неправ
 как admin `username = "admin"` в 150 строчке кода. Если бы данного ограничения 
 не было, я бы организовал вызов программы следующим образом:  
 
-`python postgresqlinstaller.py <hostname> <username>`,  
+`python database_client.py <hostname> <username>`,  
 где username (имя пользователя) задавалось бы как:  
 
 `username = sys.argv[2]`
