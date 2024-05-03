@@ -119,7 +119,7 @@ class DatabaseClient:
         :param query_text: PostgreSQL database query text.
         :type query_text: str
 
-        :return: Database query result
+        :return: None
 
         """
         self._ssh_connection()
