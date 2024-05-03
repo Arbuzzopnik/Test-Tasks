@@ -95,7 +95,6 @@ class DatabaseClient:
         try:
             for key, value in tqdm(cmds.items(), colour=False):
                 stdin, stdout, stderr = self.client.exec_command(value)
-                print(value)
                 tqdm.write(f"{key}... ", end='')
 
                 error = stderr.read().decode('utf-8')
