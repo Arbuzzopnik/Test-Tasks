@@ -13,6 +13,7 @@ class TestValidateHostname:
 
     This test suite contains test cases related to validating hostnames with DatabaseClient class.
     """
+
     @pytest.mark.parametrize("hostname", ["192.168.1.1", "8.8.8.8", "www.example.com", "google.com"])
     def test_valid_hostname_success(self, hostname):
         """
@@ -26,8 +27,10 @@ class TestValidateHostname:
             Raises:
             AssertionError: If validation fails for valid hostnames.
         """
-        assert DatabaseClient.validate_hostname(
-            hostname) is None, "Valid hostname should pass without raising an exception."
+        try:
+            DatabaseClient.validate_hostname(hostname)
+        except Exception as e:
+            raise AssertionError("Valid hostname should pass without raising an exception.")
 
     @pytest.mark.parametrize("hostname", ["invalid_ip", "256.256.256.256"])
     def test_validate_hostname_exception_handling(self, hostname):
@@ -110,8 +113,8 @@ class TestInstallPostgres:
 
     This test suite contains test cases related to installing PostgreSQL with the DatabaseClient class.
     """
-    def test_install_postgres_success(self, mocker):
 
+    def test_install_postgres_success(self, mocker):
         """
         Test case to validate successful PostgreSQL installation.
 
@@ -211,7 +214,8 @@ class TestRequestToDB:
         client.request_to_db("SELECT * FROM table")
 
         # Checking if exec_command was called with the correct command
-        mock_ssh_instance.exec_command.assert_called_once_with("docker exec postgres psql -U admin -d test_db -c 'SELECT * FROM table'")
+        mock_ssh_instance.exec_command.assert_called_once_with(
+            "docker exec postgres psql -U admin -d test_db -c 'SELECT * FROM table'")
 
     def test_request_to_db_exception_handling(self, mocker):
         """
