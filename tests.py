@@ -43,7 +43,7 @@ class TestValidateHostname:
             AssertionError: If expected ValueError exception is not raised.
         """
 
-        # Ожидание исключения ValueError, вызываемого в блоке except
+        # Expecting a ValueError exception raised in the except block
         with pytest.raises(ValueError):
             DatabaseClient.validate_hostname(hostname)
 
@@ -59,20 +59,20 @@ class TestSSHConnection:
         mock_auto_add_policy = mocker.patch('paramiko.AutoAddPolicy')
         mock_ssh_client = mocker.patch('paramiko.SSHClient')
 
-        # Создаем объект DatabaseClient для тестирования
+        # Creating a DatabaseClient object for testing
         db_config = DbConfig(container_name='postgres', db_name='test_db', user='admin', password='pass')
         client = DatabaseClient(hostname='192.168.1.1', username='mock_user', db_config=db_config)
 
-        # Мокируем объект paramiko.AutoAddPolicy() для возврата в тесте
+        # Mocking paramiko.AutoAddPolicy() object for return in test
         mock_auto_add_policy_instance = mock_auto_add_policy.return_value
 
-        # Мокируем set_missing_host_key_policy и connect
+        # Mocking set_missing_host_key_policy and connect
         mock_ssh_instance = mock_ssh_client.return_value
         mock_ssh_instance.connect.return_value = None
 
         client._ssh_connection()
 
-        # Проверяем, что методы были вызваны с правильными параметрами
+        # Checking if methods were called with the correct parameters
         mock_auto_add_policy.assert_called_once()
         mock_ssh_instance.set_missing_host_key_policy.assert_called_once_with(mock_auto_add_policy_instance)
         mock_ssh_instance.connect.assert_called_once_with(hostname='192.168.1.1', username='mock_user')
@@ -91,15 +91,15 @@ class TestSSHConnection:
 
         """
         mock_ssh_client = mocker.patch('paramiko.SSHClient')
-        # Создаем объект DatabaseClient для тестирования
+        # Creating a DatabaseClient object for testing
         db_config = DbConfig(container_name='postgres', db_name='test_db', user='admin', password='pass')
         client = DatabaseClient(hostname='192.168.1.1', username='mock_user', db_config=db_config)
 
-        # Мокируем connect, чтобы выбросить исключение
+        # Mocking connect to raise an exception
         mock_ssh_instance = mock_ssh_client.return_value
         mock_ssh_instance.connect.side_effect = paramiko.SSHException("Connection failed")
 
-        # Проверяем, что исключение перехватывается и выводится правильное сообщение
+        # Checking if the exception is caught and the correct message is printed
         with pytest.raises(ValueError):
             client._ssh_connection()
 
@@ -134,7 +134,7 @@ class TestInstallPostgres:
         mock_auto_add_policy_instance = mock_auto_add_policy.return_value
         mock_ssh_instance = mock_ssh_client.return_value
 
-        # Мокируем exec_command чтобы успешно выполнить команды
+        # Mocking exec_command to successfully execute commands
         mock_ssh_instance.exec_command.side_effect = [
             (BytesIO(), BytesIO(b'something output'), BytesIO()),
             (BytesIO(), BytesIO(b'something output'), BytesIO()),
@@ -144,7 +144,7 @@ class TestInstallPostgres:
 
         client.install_postgres()
 
-        # Проверяем, что выводится правильное сообщение об успешном завершении
+        # Checking if the correct completion message is printed
         mock_print.assert_called_with('Installation completed')
 
     def test_install_postgres_with_exception(self, mocker):
@@ -168,7 +168,7 @@ class TestInstallPostgres:
         mock_auto_add_policy_instance = mock_auto_add_policy.return_value
         mock_ssh_instance = mock_ssh_client.return_value
 
-        # Мокируем exec_command чтобы успешно выполнить команды
+        # Mocking exec_command to successfully execute commands
         mock_ssh_instance.exec_command.side_effect = (BytesIO(), BytesIO(), BytesIO(b'error'))
 
         with pytest.raises(ValueError):
@@ -210,7 +210,7 @@ class TestRequestToDB:
 
         client.request_to_db("SELECT * FROM table")
 
-        # Check if exec_command was called with the correct command
+        # Checking if exec_command was called with the correct command
         mock_ssh_instance.exec_command.assert_called_once_with("docker exec postgres psql -U admin -d test_db -c 'SELECT * FROM table'")
 
     def test_request_to_db_exception_handling(self, mocker):
