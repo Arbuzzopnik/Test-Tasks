@@ -22,6 +22,8 @@ ___
 python database_client.py 192.168.56.103
 python database_client.py somehost
 ```
+### Запуск тестов 
+`pytest tests.py -v`
 ___
 ## Требования к удаленному хосту
 1. На удаленном хосте должен быть установлен и запущен SSH сервер.  

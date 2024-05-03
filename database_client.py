@@ -1,13 +1,11 @@
-from time import sleep
 import sys
-
-from socket import gethostbyname
 from ipaddress import IPv4Address
+from socket import gethostbyname
+from time import sleep
 
 import paramiko
-from tqdm import tqdm
-
 from colorama import Fore, init
+from tqdm import tqdm
 
 from datamodels import DbConfig
 
@@ -31,12 +29,12 @@ class DatabaseClient:
         """
         try:
             IPv4Address(hostname)
-        except ValueError:
+        except Exception:
             try:
                 IPv4Address(gethostbyname(hostname))
             except Exception as e:
                 print(f"Error: {e}. Invalid IP address or host.")
-                sys.exit(1)
+                raise ValueError("Invalid hostname") from None
 
     def __init__(self, hostname: str, username: str, db_config: DbConfig):
         """
@@ -66,10 +64,9 @@ class DatabaseClient:
         try:
             self.client.connect(hostname=self.hostname, username=self.username)
         except (paramiko.SSHException, OSError) as e:
-            print(f"Error connecting to {self.hostname} as {self.username}:\n{e}")
-            sys.exit(1)
+            raise ValueError("Error connecting to {self.hostname} as {self.username}:\n{e}")
 
-    def installing_postgres(self) -> None:
+    def install_postgres(self) -> None:
         """
         This method is designed to automate the process of setting up and configuring a PostgreSQL database within a
         Docker container. It initializes the necessary directories, pulls the PostgreSQL image from Docker Hub,
@@ -85,12 +82,9 @@ class DatabaseClient:
 
         # Commands for installing and configuring PostgreSQL
         cmds = {
-            'Creating a mount directory': 'mkdir -p $HOME/docker/volumes/postgres',
+            'Creating a mount directory': 'docker volume create pg_data_volume',
             'Downloading a PostgreSQL image from Docker Hub': "docker pull postgres",
-            'Running a PostgreSQL container': f"docker run -d --restart unless-stopped --name {self.db_config.container_name} -e "
-                                              f"POSTGRES_PASSWORD={self.db_config.password} -e "
-                                              f"POSTGRES_USER={self.db_config.user} -e POSTGRES_DB={self.db_config.db_name} -d -p 5432:5432 -v "
-                                              "$HOME/docker/volumes/postgres:/var/lib/postgresql/data postgres",
+            'Running a PostgreSQL container': f"docker run -d --name {self.db_config.container_name} -e POSTGRES_PASSWORD={self.db_config.password} -e POSTGRES_USER={self.db_config.user} -e POSTGRES_DB={self.db_config.db_name} -d -p 5432:5432 -v pg_data_volume:/var/lib/postgresql/data postgres",
             'Allowing incoming connections to the database': f"docker exec  {self.db_config.container_name} bash -c 'echo \"host all "
                                                              f"all 0.0.0.0/0 "
                                                              "md5\" >> /var/lib/postgresql/data/pg_hba.conf'",
@@ -101,22 +95,20 @@ class DatabaseClient:
         try:
             for key, value in tqdm(cmds.items(), colour=False):
                 stdin, stdout, stderr = self.client.exec_command(value)
-
+                print(value)
                 tqdm.write(f"{key}... ", end='')
 
                 error = stderr.read().decode('utf-8')
 
                 if error:
                     tqdm.write(Fore.RED + 'Error')
-                    print(f"\nError occurred while running command '{value}': {error}")
-                    sys.exit(1)  # Вызываем sys.exit(1) здесь, если есть ошибка
+                    raise ValueError(f"Error occurred while running command '{value}': {error}")
                 else:
                     tqdm.write(Fore.GREEN + 'Done')
                 sleep(1)
             print('Installation completed')
         except Exception as e:
-            print(f"An error occurred during execution: {e}")
-            sys.exit(1)
+            raise ValueError(f"An error occurred during execution: {e}")
         finally:
             self.client.close()
 
@@ -127,7 +119,7 @@ class DatabaseClient:
         :param query_text: PostgreSQL database query text.
         :type query_text: str
 
-        :return: None
+        :return: Database query result
 
         """
         self._ssh_connection()
@@ -138,8 +130,7 @@ class DatabaseClient:
             output = stdout.read().decode('utf-8')
             print(error or output)
         except Exception as e:
-            print(f"An error occurred during execution: {e}")
-            sys.exit(1)
+            raise ValueError(f"An error occurred during execution: {e}")
         finally:
             self.client.close()
 
@@ -147,17 +138,17 @@ class DatabaseClient:
 if __name__ == '__main__':
     # Parameters for connecting to a remote host
     hostname = sys.argv[1]
-    username = "admin"
+    username = "arbuzzopnik"
 
     # PostgreSQL database configuration
     db_config = DbConfig(container_name='postgres',
-                         db_name='test_db',
-                         user='admin',
+                         db_name='some_db',
+                         user='postgres',
                          password='pass')
 
     # Attempt to install PostgreSQL
     client = DatabaseClient(hostname=hostname, username=username, db_config=db_config)
-    client.installing_postgres()
+    client.install_postgres()
 
     # Running a test request
     query_text = "SELECT 1;"
